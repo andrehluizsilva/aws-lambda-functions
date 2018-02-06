@@ -33,7 +33,7 @@ def lambda_handler(event, context):
         AMIid = ec.create_image(
             InstanceId=instance['InstanceId'],
             Name="Auto Backup - " + instance_name ,
-            Description="Auto Backup created AMI of instance " + instance_name " on " + create_fmt,
+            Description="Auto Backup created AMI of instance " + instance_name + " on " + create_fmt,
             NoReboot=True,
             DryRun=False)
 
