@@ -22,7 +22,7 @@ def lambda_handler(event, context):
             
         try:
             instance_name = [
-                int(t.get('Value')) for t in instance['Tags']
+                t.get('Value') for t in instance['Tags']
                 if t['Key'] == 'Name'][0]
         except IndexError:
             instance_name = instance['InstanceId']
@@ -32,7 +32,7 @@ def lambda_handler(event, context):
 
         AMIid = ec.create_image(
             InstanceId=instance['InstanceId'],
-            Name="Auto Backup - " + instance_name ,
+            Name="Auto Backup - " + instance_name + " on " + create_fmt ,
             Description="Auto Backup created AMI of instance " + instance_name + " on " + create_fmt,
             NoReboot=True,
             DryRun=False)
@@ -47,19 +47,20 @@ def lambda_handler(event, context):
             ])
         ec.create_tags(DryRun=False, Resources=[AMIid['ImageId'],], Tags=instance['Tags']) 
 
-        image = ec.describe_images(
+        images = ec.describe_images(
             DryRun=False,
             ImageIds=[
                 AMIid['ImageId'],
             ],
         )
 
-        blocks = image['BlockDeviceMappings']
-        for bd in blocks:
-            ec.create_tags(DryRun=False, Resources=[bd['Ebs']['SnapshotId'],], Tags=instance['Tags']) 
+        for image in images['Images']:
+            blocks = image['BlockDeviceMappings']
+            for bd in blocks:
+                ec.create_tags(DryRun=False, Resources=[bd['Ebs']['SnapshotId'],], Tags=instance['Tags']) 
 
         print "Retaining AMI %s of instance %s for %d days" % (
             AMIid['ImageId'],
-            instance['InstanceId'],
+            instance_name,
             retention_days,
         )
