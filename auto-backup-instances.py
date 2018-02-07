@@ -30,7 +30,7 @@ def lambda_handler(event, context):
         create_time = datetime.datetime.now()
         create_fmt = create_time.strftime('%Y-%m-%d %H-%M-%S')
         
-        AMIName = "Auto Backup - " + instance_name + " on " + create_fmt
+        AMIName = "Auto Backup [" + create_fmt + "] - " + instance_name 
         AMIDescription = "Auto Backup created AMI of instance " + instance_name + " (" + instance['InstanceId']  + ") on " + create_fmt
 
         print "AMI Name: %s" % AMIName
@@ -64,29 +64,10 @@ def lambda_handler(event, context):
         
         ec.create_tags(DryRun=False, Resources=[AMIid['ImageId'],], Tags=tags)
         
-        print "Created tags for image: %s - tags: %s" % (
+        print "Created tags for image: %s" % (
             AMIid['ImageId'],
-            tags
         )
         
-        #images = ec.describe_images(
-        #    DryRun=False,
-        #    ImageIds=[
-        #        AMIid['ImageId'],
-        #    ],
-        #)
-
-        #for image in images['Images']:
-        #    blocks = image['BlockDeviceMappings']
-        #    print "Blocks: %s" % blocks
-        #    for bd in blocks:
-        #        print "Block: %s" % bd
-        #        ec.create_tags(DryRun=False, Resources=[bd['Ebs']['SnapshotId'],], Tags=instance['Tags']) 
-        #        print "Created tags for snapshot: %s - tags: %s" % (
-        #            bd['Ebs']['SnapshotId'],
-        #            instance['Tags']
-        #        )
-
         print "Retaining AMI %s of instance %s for %d days" % (
             AMIid['ImageId'],
             instance_name,
