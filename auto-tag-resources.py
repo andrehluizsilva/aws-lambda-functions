@@ -1,16 +1,12 @@
-from __future__ import print_function
 import json
 import boto3
-import logging
 import time
 import datetime
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
 def lambda_handler(event, context):
-    #logger.info('Event: ' + str(event))
     #print('Received event: ' + json.dumps(event, indent=2))
+    #print(event)
+    #rint(context)
 
     ids = []
 
@@ -24,36 +20,37 @@ def lambda_handler(event, context):
 
         if userType == 'IAMUser':
             user = detail['userIdentity']['userName']
-
         else:
             user = principal.split(':')[1]
 
-
-        logger.info('principalId: ' + str(principal))
-        logger.info('region: ' + str(region))
-        logger.info('eventName: ' + str(eventname))
-        logger.info('detail: ' + str(detail))
+        print "INFO: principalId: %s" % str(principal)
+        print "INFO: region: %s" % str(region)
+        print "INFO: eventName: %s" % str(eventname)
+        #print "INFO: detail: %s" % str(detail)
 
         if not detail['responseElements']:
-            logger.warning('Not responseElements found')
+            print "WARNING: Not responseElements found"
             if detail['errorCode']:
-                logger.error('errorCode: ' + detail['errorCode'])
+                print "ERROR: errorCode: %s" % detail['errorCode']
             if detail['errorMessage']:
-                logger.error('errorMessage: ' + detail['errorMessage'])
+                print "ERROR: errorMessage: %s" % detail['errorMessage']
             return False
 
         ec2 = boto3.resource('ec2')
+        ec = boto3.client('ec2')
 
         if eventname == 'CreateVolume':
             ids.append(detail['responseElements']['volumeId'])
-            logger.info(ids)
+            print "INFO: volume-id: %s" % detail['responseElements']['volumeId']
+            print "INFO: %s" % ids
 
         elif eventname == 'RunInstances':
             items = detail['responseElements']['instancesSet']['items']
             for item in items:
                 ids.append(item['instanceId'])
-            logger.info(ids)
-            logger.info('number of instances: ' + str(len(ids)))
+                print "INFO: instance-id: %s" % item['instanceId']
+            print "INFO: %s" % ids
+            print "INFO: number of instances: %s" % str(len(ids))
 
             base = ec2.instances.filter(InstanceIds=ids)
 
@@ -66,7 +63,8 @@ def lambda_handler(event, context):
 
         elif eventname == 'CreateImage':
             ids.append(detail['responseElements']['imageId'])
-            logger.info(ids)
+            print "INFO: image-id: %s" % detail['responseElements']['imageId']
+            print "INFO: %s" % ids
 
             images = ec.describe_images(
                 DryRun=False,
@@ -77,28 +75,26 @@ def lambda_handler(event, context):
 
             for image in images['Images']:
                 blocks = image['BlockDeviceMappings']
-                print "Blocks: %s" % blocks
                 for bd in blocks:
-                    print "Block: %s" % bd
                     ec.create_tags(DryRun=False, Resources=[bd['Ebs']['SnapshotId'],], Tags=image['Tags']) 
-                    print "Created tags for snapshot: %s - tags: %s" % (
+                    print "Created tags for snapshot: %s" % (
                         bd['Ebs']['SnapshotId'],
-                        image['Tags']
                     )
 
         elif eventname == 'CreateSnapshot':
             ids.append(detail['responseElements']['snapshotId'])
-            logger.info(ids)
+            print "INFO: snapshot-id: %s" % detail['responseElements']['snapshotId']
+            print "INFO: %s" % ids
         else:
-            logger.warning('Not supported action')
+            print "WARNING: Not supported action"
 
         if ids:
             for resourceid in ids:
-                print('Tagging resource ' + resourceid)
+                print "Tagging resource %s" % resourceid
             ec2.create_tags(Resources=ids, Tags=[{'Key': 'Owner', 'Value': user}, {'Key': 'PrincipalId', 'Value': principal}])
 
-        logger.info(' Remaining time (ms): ' + str(context.get_remaining_time_in_millis()) + '\\n')
+        print "INFO: Remaining time (ms): %s \\n" % str(context.get_remaining_time_in_millis())
         return True
     except Exception as e:
-        logger.error('Something went wrong: ' + str(e))
+        print "ERROR: Something went wrong: %s" % str(e)
         return False
