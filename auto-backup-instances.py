@@ -28,36 +28,64 @@ def lambda_handler(event, context):
             instance_name = instance['InstanceId']
 
         create_time = datetime.datetime.now()
-        create_fmt = create_time.strftime('%Y-%m-%d')
+        create_fmt = create_time.strftime('%Y-%m-%d %H-%M-%S')
+        
+        AMIName = "Auto Backup - " + instance_name + " on " + create_fmt
+        AMIDescription = "Auto Backup created AMI of instance " + instance_name + " (" + instance['InstanceId']  + ") on " + create_fmt
+
+        print "AMI Name: %s" % AMIName
+        print "AMI Description: %s" % AMIDescription
 
         AMIid = ec.create_image(
             InstanceId=instance['InstanceId'],
-            Name="Auto Backup - " + instance_name + " on " + create_fmt ,
-            Description="Auto Backup created AMI of instance " + instance_name + " on " + create_fmt,
+            Name= AMIName,
+            Description=AMIDescription,
             NoReboot=True,
             DryRun=False)
 
+        print "Created image for instance: %s on %s" % (
+            instance_name,
+            create_fmt,
+        )
         delete_date = datetime.date.today() + datetime.timedelta(days=retention_days)
         delete_fmt = delete_date.strftime('%Y-%m-%d')
-        ec.create_tags(DryRun=False, Resources=[AMIid['ImageId'],],
-            Tags=[
+
+        tags = [
                 { 'Key': 'DeleteOn', 'Value': delete_fmt },
                 { 'Key': 'instance-id', 'Value':instance['InstanceId'] },
                 { 'Key': 'instance-type', 'Value':instance['InstanceType'] }
-            ])
-        ec.create_tags(DryRun=False, Resources=[AMIid['ImageId'],], Tags=instance['Tags']) 
+               ] + instance['Tags']
 
-        images = ec.describe_images(
-            DryRun=False,
-            ImageIds=[
-                AMIid['ImageId'],
-            ],
+        aws_tags = []
+        for tag in tags:
+            aws_tags.extend([ tag for k,v in tag.items() if 'aws:' in v])
+        for k in aws_tags:
+            tags.remove(k)
+        
+        ec.create_tags(DryRun=False, Resources=[AMIid['ImageId'],], Tags=tags)
+        
+        print "Created tags for image: %s - tags: %s" % (
+            AMIid['ImageId'],
+            tags
         )
+        
+        #images = ec.describe_images(
+        #    DryRun=False,
+        #    ImageIds=[
+        #        AMIid['ImageId'],
+        #    ],
+        #)
 
-        for image in images['Images']:
-            blocks = image['BlockDeviceMappings']
-            for bd in blocks:
-                ec.create_tags(DryRun=False, Resources=[bd['Ebs']['SnapshotId'],], Tags=instance['Tags']) 
+        #for image in images['Images']:
+        #    blocks = image['BlockDeviceMappings']
+        #    print "Blocks: %s" % blocks
+        #    for bd in blocks:
+        #        print "Block: %s" % bd
+        #        ec.create_tags(DryRun=False, Resources=[bd['Ebs']['SnapshotId'],], Tags=instance['Tags']) 
+        #        print "Created tags for snapshot: %s - tags: %s" % (
+        #            bd['Ebs']['SnapshotId'],
+        #            instance['Tags']
+        #        )
 
         print "Retaining AMI %s of instance %s for %d days" % (
             AMIid['ImageId'],
