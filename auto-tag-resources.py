@@ -42,14 +42,12 @@ def lambda_handler(event, context):
         if eventname == 'CreateVolume':
             ids.append(detail['responseElements']['volumeId'])
             print "INFO: volume-id: %s" % detail['responseElements']['volumeId']
-            print "INFO: %s" % ids
 
         elif eventname == 'RunInstances':
             items = detail['responseElements']['instancesSet']['items']
             for item in items:
                 ids.append(item['instanceId'])
                 print "INFO: instance-id: %s" % item['instanceId']
-            print "INFO: %s" % ids
             print "INFO: number of instances: %s" % str(len(ids))
 
             base = ec2.instances.filter(InstanceIds=ids)
@@ -64,7 +62,6 @@ def lambda_handler(event, context):
         elif eventname == 'CreateImage':
             ids.append(detail['responseElements']['imageId'])
             print "INFO: image-id: %s" % detail['responseElements']['imageId']
-            print "INFO: %s" % ids
 
             images = ec.describe_images(
                 DryRun=False,
@@ -76,15 +73,17 @@ def lambda_handler(event, context):
             for image in images['Images']:
                 blocks = image['BlockDeviceMappings']
                 for bd in blocks:
-                    ec.create_tags(DryRun=False, Resources=[bd['Ebs']['SnapshotId'],], Tags=image['Tags']) 
-                    print "Created tags for snapshot: %s" % (
-                        bd['Ebs']['SnapshotId'],
-                    )
+                    ids.append(bd['Ebs']['SnapshotId'])
+                    print "INFO: snapshot-id: %s" %bd['Ebs']['SnapshotId']
+                    if hasattr(image, 'Tags'):
+                        ec.create_tags(DryRun=False, Resources=[bd['Ebs']['SnapshotId'],], Tags=image['Tags']) 
+                        print "Created tags for snapshot: %s" % (
+                            bd['Ebs']['SnapshotId'],
+                        )
 
         elif eventname == 'CreateSnapshot':
             ids.append(detail['responseElements']['snapshotId'])
             print "INFO: snapshot-id: %s" % detail['responseElements']['snapshotId']
-            print "INFO: %s" % ids
         else:
             print "WARNING: Not supported action"
 
