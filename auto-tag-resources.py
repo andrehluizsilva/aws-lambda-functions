@@ -61,25 +61,17 @@ def lambda_handler(event, context):
 
         elif eventname == 'CreateImage':
             ids.append(detail['responseElements']['imageId'])
-            print "INFO: image-id: %s" % detail['responseElements']['imageId']
-
-            images = ec.describe_images(
-                DryRun=False,
-                ImageIds=[
-                    detail['responseElements']['imageId'],
-                ],
-            )
-
-            for image in images['Images']:
-                blocks = image['BlockDeviceMappings']
-                for bd in blocks:
-                    ids.append(bd['Ebs']['SnapshotId'])
-                    print "INFO: snapshot-id: %s" %bd['Ebs']['SnapshotId']
-                    if hasattr(image, 'Tags'):
-                        ec.create_tags(DryRun=False, Resources=[bd['Ebs']['SnapshotId'],], Tags=image['Tags']) 
-                        print "Created tags for snapshot: %s" % (
-                            bd['Ebs']['SnapshotId'],
-                        )
+            image = ec2.Image(detail['responseElements']['imageId'])
+            print "INFO: Image id: %s - status: %s" % (image.image_id, image.state)
+            
+            blocks = image.block_device_mappings
+            for bd in blocks:
+                ids.append(bd['Ebs']['SnapshotId'])
+                print "INFO: snapshot-id: %s" %bd['Ebs']['SnapshotId']
+                ec.create_tags(DryRun=False, Resources=[bd['Ebs']['SnapshotId'],], Tags=image.tags) 
+                print "Created tags for snapshot: %s" % (
+                    bd['Ebs']['SnapshotId'],
+                )
 
         elif eventname == 'CreateSnapshot':
             ids.append(detail['responseElements']['snapshotId'])
